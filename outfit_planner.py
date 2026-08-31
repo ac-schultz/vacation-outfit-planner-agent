@@ -25,8 +25,11 @@ import requests
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
-# Open-Meteo's free forecast only looks ~16 days ahead reliably.
-MAX_FORECAST_DAYS = 16
+# Open-Meteo allows end_date up to today+15, but that exact last day is the ragged edge
+# of its forecast model — fields on it (temp, rain, etc.) can come back null
+# unpredictably, since it's live model data right at the boundary of coverage.
+# Stopping one day earlier avoids ever requesting that unreliable edge day.
+MAX_FORECAST_DAYS = 14
 
 
 def geocode_city(city: str):
@@ -95,7 +98,9 @@ def classify_conditions(forecast: dict):
     else:
         temp_band = "hot"
 
-    rain_chance = forecast["rain_chance"]
+    # Open-Meteo sometimes returns null for precipitation_probability_max on the
+    # last day of its forecast window — treat missing data as no known rain risk.
+    rain_chance = forecast["rain_chance"] or 0
     if rain_chance >= 60:
         rain = "likely"
     elif rain_chance >= 30:
@@ -156,16 +161,17 @@ def suggest_outfit(conditions: dict, arrival: Optional[str] = None):
     return " ".join(pieces)
 
 
-def build_packing_list(daily_conditions: list):
+def build_packing_list(daily_conditions: list, pack_light: bool = False):
     """Tally how many of each item to pack for the whole trip."""
     trip_days = len(daily_conditions)
+    # Pack light: shirts get re-worn once, pants get re-worn more (1-per-5 vs 1-per-3 days).
+    shirt_ratio, pants_ratio = (2, 5) if pack_light else (1, 3)
 
     packing_list = {
-        "shirts": trip_days,
+        "shirts": max(1, math.ceil(trip_days / shirt_ratio)),
         "underwear": trip_days,
         "socks": trip_days,
-        # Pants get re-worn, so pack roughly one pair per 3 days rather than one per day.
-        "pants": max(1, math.ceil(trip_days / 3)),
+        "pants": max(1, math.ceil(trip_days / pants_ratio)),
     }
 
     if any(c["rain"] != "unlikely" for c in daily_conditions):

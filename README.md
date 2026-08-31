@@ -7,10 +7,26 @@ forecast (temperature, rain, wind). Uses [Open-Meteo](https://open-meteo.com)
 ## Setup
 
 ```bash
-pip install requests
+pip install requests streamlit
 ```
 
-## Usage
+## Web interface
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Opens a form in your browser: city, arrival date, an "arriving midday or
+late?" checkbox, departure date, and a "pack light?" checkbox (tighter
+reuse ratio for pants/shirts). Submitting shows a color-coded forecast +
+outfit suggestion for each day of the trip, plus a packing checklist at
+the end.
+
+## Command line
+
+Same logic, run from the terminal instead.
+
+### Usage
 
 Single day:
 
